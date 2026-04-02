@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, query, where, getDocs, doc, updateDoc, onSnapshot, setDoc, getDoc, serverTimestamp, deleteDoc, arrayUnion } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDqXaURs_yBL_cwyaTijeOyy-zklK9yP3Y",
@@ -18,7 +18,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 const googleProvider = new GoogleAuthProvider();
-export { db, auth, googleProvider, signInWithPopup, signOut, collection, query, where, getDocs, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp, deleteDoc, arrayUnion };
+export { db, auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, collection, query, where, getDocs, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp, deleteDoc, arrayUnion };
 
 // Persist user progress to Firestore
 export const updateUserProgress = async (userId: string, progress: number) => {

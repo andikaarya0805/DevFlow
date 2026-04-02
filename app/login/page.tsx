@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth, googleProvider, db, getDoc, doc, setDoc, updateDoc, serverTimestamp } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { Infinity } from "lucide-react";
@@ -11,73 +11,93 @@ import { useAuth } from "@/context/AuthContext";
 export default function LoginPage() {
   const router = useRouter();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { user, role, loading } = useAuth(); // If already logged in, redirect based on role
+  const { user, role, loading: authLoading } = useAuth();
 
+  // 1. Handle Redirect Result on Mount (Essential for Mobile)
   useEffect(() => {
-    if (user && !loading && role) {
+    const handleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          setIsLoggingIn(true);
+          await syncUserProfile(result.user);
+        }
+      } catch (error: any) {
+        console.error("Redirect login error:", error);
+        if (error.code !== "auth/popup-closed-by-user") {
+          toast.error(error.message || "Failed to sign in with Google redirect");
+        }
+      } finally {
+        setIsLoggingIn(false);
+      }
+    };
+    handleRedirect();
+  }, []);
+
+  // 2. Navigation if already logged in
+  useEffect(() => {
+    if (user && !authLoading && role) {
       if (role === "admin") {
         router.push("/dashboard");
       } else {
         router.push("/checklist");
       }
     }
-  }, [user, role, loading, router]);
+  }, [user, role, authLoading, router]);
+
+  // Unified User Sync Logic
+  const syncUserProfile = async (currentUser: any) => {
+    const ADMIN_EMAIL = "andikaaryapratama0805@gmail.com"; 
+    const isAdmin = currentUser.email === ADMIN_EMAIL;
+    const assignedRole = isAdmin ? "admin" : "developer";
+
+    const userRef = doc(db, "users", currentUser.uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      await setDoc(userRef, {
+        uid: currentUser.uid,
+        name: currentUser.displayName,
+        email: currentUser.email,
+        photoURL: currentUser.photoURL,
+        progress: 0,
+        status: "Active",
+        role: assignedRole,
+        completedTasks: [],
+        joinedAt: serverTimestamp(),
+        lastActive: serverTimestamp()
+      });
+      toast.success("Welcome to DevFlow! Account created.");
+    } else {
+      const existingData = userSnap.data();
+      if (isAdmin && existingData.role !== "admin") {
+        await updateDoc(userRef, { role: "admin" });
+      }
+      toast.success(`Welcome back, ${currentUser.displayName?.split(" ")[0]}!`);
+    }
+    
+    // AuthContext will handle state, but we can nudge router
+    // Navigation is handled by the other useEffect
+  };
 
   const handleGoogleLogin = async () => {
     if (isLoggingIn) return;
-    setIsLoggingIn(true);
+    
+    // 🧩 STRATEGY: Call popup immediately to preserve "User Gesture" context
+    // Some mobile browsers block popups if any async work (like state updates) happens first.
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      const currentUser = result.user;
-
-      // HARDCODE ADMIN LOGIC:
-      const ADMIN_EMAIL = "andikaaryapratama0805@gmail.com"; 
-      
-      const isAdmin = currentUser.email === ADMIN_EMAIL;
-      const assignedRole = isAdmin ? "admin" : "developer";
-
-      // Check if user exists in Firestore
-      const userRef = doc(db, "users", currentUser.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        // Create new user document handling the array requirement
-        await setDoc(userRef, {
-          uid: currentUser.uid,
-          name: currentUser.displayName,
-          email: currentUser.email,
-          photoURL: currentUser.photoURL,
-          progress: 0,
-          status: "Active",
-          role: assignedRole,
-          completedTasks: [], // Array of completed task IDs
-          joinedAt: serverTimestamp(),
-          lastActive: serverTimestamp()
-        });
-        toast.success("Welcome to DevFlow! Account created.");
-        
-        if (assignedRole === "admin") router.push("/dashboard");
-        else router.push("/checklist");
-
-      } else {
-        const existingData = userSnap.data();
-        let finalRole = existingData.role || "developer";
-        
-        // Force update if the user's email matches the hardcoded admin but role isn't admin
-        if (isAdmin && finalRole !== "admin") {
-          await updateDoc(userRef, { role: "admin" });
-          finalRole = "admin";
-        }
-        
-        toast.success(`Welcome back, ${currentUser.displayName?.split(" ")[0]}!`);
-        
-        // Use the synchronized role for navigation
-        if (finalRole === "admin") router.push("/dashboard");
-        else router.push("/checklist");
-      }
+      setIsLoggingIn(true);
+      await syncUserProfile(result.user);
     } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "Failed to sign in with Google");
+      console.warn("Popup blocked or failed, falling back to redirect:", error.code);
+      if (error.code === "auth/popup-blocked" || error.code === "auth/cancelled-popup-request") {
+        setIsLoggingIn(true);
+        // Fallback for Mobile: Redirect
+        await signInWithRedirect(auth, googleProvider);
+      } else if (error.code !== "auth/popup-closed-by-user") {
+        toast.error(error.message || "Failed to sign in");
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -99,7 +119,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="pt-4 relative z-10">
+        <div className="pt-4 relative z-10 space-y-4">
           <button
             onClick={handleGoogleLogin}
             disabled={isLoggingIn}
@@ -117,6 +137,10 @@ export default function LoginPage() {
             )}
             {isLoggingIn ? "Signing in..." : "Continue with Google"}
           </button>
+
+          <p className="text-[10px] text-zinc-500 text-center px-4 leading-relaxed italic">
+            Trouble logging in? Ensure <code className="text-zinc-400">localhost:3000</code> is authorized in your Google Console.
+          </p>
         </div>
 
       </div>

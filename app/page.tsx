@@ -354,155 +354,101 @@ export default function LandingPage() {
         <div className="glow-orb" style={{ width: 400, height: 400, background: "radial-gradient(circle, rgba(244,114,182,0.08) 0%, transparent 70%)", top: "50%", left: "50%" }} />
 
         {/* ── Navigation ───────────────────────────────────────────────── */}
-        <nav style={{
-          position: "relative",
-          zIndex: 50,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "24px 48px",
-          maxWidth: 1280,
-          margin: "0 auto",
-          borderBottom: "1px solid var(--border)",
-          backdropFilter: "blur(12px)",
-        }}>
+        <nav className="relative z-50 flex justify-between items-center px-6 md:px-12 py-6 max-w-7xl mx-auto border-b border-[var(--border)] backdrop-blur-xl">
           {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 36, height: 36,
-              background: "var(--accent)",
-              borderRadius: 10,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <Zap style={{ width: 18, height: 18, color: "#000", fill: "#000" }} />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[var(--accent)] rounded-xl flex items-center justify-center shadow-lg shadow-[var(--accent)]/20">
+              <Zap className="w-5 h-5 text-black fill-black" />
             </div>
-            <span className="font-display" style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff" }}>
+            <span className="font-display text-lg font-extrabold tracking-tighter text-white">
               DEVFLOW
             </span>
           </div>
 
           {/* Links */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Link href="/dashboard" style={{
-              padding: "8px 18px",
-              color: "var(--muted)",
-              fontFamily: "'Onest', sans-serif",
-              fontWeight: 500,
-              fontSize: 14,
-              textDecoration: "none",
-              borderRadius: 10,
-              transition: "color 0.2s",
-            }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-              onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}
-            >
+          <div className="flex items-center gap-2 md:gap-4">
+            <Link href="/dashboard" className="hidden sm:block px-4 py-2 text-[var(--muted)] hover:text-white font-medium text-sm transition-colors rounded-lg">
               Dashboard
             </Link>
 
             {user ? (
-              <button className="btn-primary" onClick={() => setIsModalOpen(true)} style={{ padding: "10px 22px", fontSize: 13 }}>
-                <Plus style={{ width: 14, height: 14 }} /> New Project
+              <button className="btn-primary !py-2 !px-4 md:!px-6 !text-xs md:!text-sm" onClick={() => setIsModalOpen(true)}>
+                <Plus className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">New Project</span>
               </button>
             ) : (
-              <Link href="/login" className="btn-primary" style={{ padding: "10px 22px", fontSize: 13, textDecoration: "none" }}>
-                Sign In <ArrowUpRight style={{ width: 14, height: 14 }} />
+              <Link href="/login" className="btn-primary !py-2 !px-4 md:!px-6 !text-xs md:!text-sm no-underline">
+                Sign In <ArrowUpRight className="w-4 h-4 ml-1" />
               </Link>
             )}
           </div>
         </nav>
 
         {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <main style={{ position: "relative", zIndex: 10, maxWidth: 1100, margin: "0 auto", padding: "90px 48px 120px" }}>
+        <main className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-20 md:pt-32 pb-24 text-center">
 
           {/* Badge */}
-          <div className="reveal-up" style={{ textAlign: "center", marginBottom: 32 }}>
+          <div className="reveal-up mb-8 flex justify-center">
             <span className="badge">
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", display: "inline-block" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
               Engineering Excellence Redefined
             </span>
           </div>
 
           {/* Headline */}
-          <div className="reveal-up" style={{ textAlign: "center", marginBottom: 28 }}>
-            <h1 className="font-display gradient-text" style={{
-              fontSize: "clamp(52px, 8vw, 96px)",
-              fontWeight: 800,
-              lineHeight: 0.95,
-              letterSpacing: "-0.04em",
-            }}>
+          <div className="reveal-up mb-8">
+            <h1 className="font-display gradient-text text-[38px] sm:text-6xl md:text-8xl lg:text-[110px] font-extrabold leading-[0.9] tracking-tight md:tracking-tighter">
               Engineering
               <br />
-              <span className="gradient-text-accent">Health</span>{" "}Control
+              <span className="gradient-text-accent">Health</span> Control
             </h1>
           </div>
 
           {/* Subheadline */}
-          <div className="reveal-up" style={{ textAlign: "center", marginBottom: 44 }}>
-            <p style={{
-              maxWidth: 560,
-              margin: "0 auto",
-              color: "var(--muted)",
-              fontSize: 17,
-              lineHeight: 1.75,
-              fontWeight: 400,
-            }}>
+          <div className="reveal-up mb-12 max-w-2xl mx-auto">
+            <p className="text-[17px] md:text-lg text-[var(--muted)] leading-relaxed font-body">
               The unified control center for technical debt, developer onboarding,
               and architectural standards — built for teams that ship without compromise.
             </p>
           </div>
 
           {/* CTAs */}
-          <div className="reveal-up" style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginBottom: 80 }}>
-            <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
-              Launch New Project <ArrowRight style={{ width: 16, height: 16 }} />
+          <div className="reveal-up flex flex-col sm:flex-row justify-center items-center gap-4 mb-20">
+            <button className="btn-primary w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+              Launch New Project <ArrowRight className="w-4 h-4" />
             </button>
-            <Link href="/dashboard" className="btn-ghost">
-              Enter Dashboard <ChevronRight style={{ width: 16, height: 16 }} />
+            <Link href="/dashboard" className="btn-ghost w-full sm:w-auto no-underline">
+              Enter Dashboard <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
 
           {/* ── Terminal Mockup ── */}
-          <div className="reveal-scale" style={{
-            maxWidth: 700,
-            margin: "0 auto 100px",
-            borderRadius: 20,
-            border: "1px solid var(--border-bright)",
-            background: "rgba(13,14,18,0.8)",
-            backdropFilter: "blur(20px)",
-            overflow: "hidden",
-            boxShadow: "0 60px 120px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)",
-          }}>
+          <div className="reveal-scale max-w-2xl mx-auto mb-20 md:mb-32 rounded-2xl border border-[var(--border-bright)] bg-[var(--surface)]/80 backdrop-blur-2xl overflow-hidden shadow-2xl shadow-black/60">
             {/* Title bar */}
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="terminal-dot" style={{ background: "#FF5F57" }} />
-              <span className="terminal-dot" style={{ background: "#FEBC2E" }} />
-              <span className="terminal-dot" style={{ background: "#28C840" }} />
-              <span className="font-mono" style={{ color: "var(--muted)", fontSize: 12, marginLeft: 12 }}>devflow — health check</span>
+            <div className="px-5 py-3.5 border-b border-[var(--border)] flex items-center gap-2">
+              <span className="terminal-dot bg-[#FF5F57]" />
+              <span className="terminal-dot bg-[#FEBC2E]" />
+              <span className="terminal-dot bg-[#28C840]" />
+              <span className="font-mono text-[var(--muted)] text-xs ml-3 hidden sm:inline">devflow — health check</span>
+              <span className="font-mono text-[var(--muted)] text-[10px] ml-3 sm:hidden">devflow --health</span>
             </div>
             {/* Content */}
-            <div className="font-mono" style={{ padding: "24px 28px", fontSize: 13, lineHeight: 1.8, color: "#7a7a90" }}>
-              <div><span style={{ color: "#00FFA3" }}>✔</span> Scanning <span style={{ color: "#fff" }}>phoenix-engine</span> repo…</div>
-              <div><span style={{ color: "#00FFA3" }}>✔</span> Architecture compliance: <span style={{ color: "#00FFA3" }}>98.2%</span></div>
-              <div><span style={{ color: "#38BDF8" }}>◈</span> Technical debt items: <span style={{ color: "#F472B6" }}>12 medium</span>, <span style={{ color: "#00FFA3" }}>2 low</span></div>
-              <div><span style={{ color: "#00FFA3" }}>✔</span> Onboarding checklist: <span style={{ color: "#00FFA3" }}>14 / 14</span> completed</div>
-              <div style={{ marginTop: 8 }}><span style={{ color: "#6b6b7e" }}>$</span> <span style={{ color: "#fff" }}>_</span><span style={{ animation: "pulse 1s infinite" }}>|</span></div>
+            <div className="font-mono p-6 md:p-8 text-xs md:text-sm leading-relaxed text-[#7a7a90] text-left">
+              <div><span className="text-[var(--accent)]">✔</span> Scanning <span className="text-white">phoenix-engine</span> repo…</div>
+              <div><span className="text-[var(--accent)]">✔</span> Architecture compliance: <span className="text-[var(--accent)]">98.2%</span></div>
+              <div className="truncate"><span className="text-[var(--accent2)]">◈</span> Technical debt: <span className="text-[var(--accent3)]">12 med</span>, <span className="text-[var(--accent)]">2 low</span></div>
+              <div><span className="text-[var(--accent)]">✔</span> Onboarding: <span className="text-[var(--accent)]">14 / 14</span> completed</div>
+              <div className="mt-2 text-[var(--muted)]">$ <span className="text-white animate-pulse">_</span></div>
             </div>
           </div>
 
           {/* ── Stats ── */}
-          <div className="reveal-scale" style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 16,
-            flexWrap: "wrap",
-            marginBottom: 100,
-          }}>
+          <div className="reveal-scale grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-24 md:mb-32">
             {stats.map((s, i) => (
               <div key={i} className="stat-card">
-                <div className="font-display" style={{ fontSize: 36, fontWeight: 800, color: "#fff", lineHeight: 1 }}>
+                <div className="font-display text-3xl md:text-5xl font-extrabold text-white leading-none">
                   <Counter target={s.value} suffix={s.suffix} />
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                <div className="text-[10px] md:text-xs text-[var(--muted)] mt-3 font-semibold uppercase tracking-widest">
                   {s.label}
                 </div>
               </div>
@@ -510,120 +456,69 @@ export default function LandingPage() {
           </div>
 
           {/* ── Feature Cards ── */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: 20,
-          }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f, i) => (
-              <div key={i} className="feat-card reveal-scale">
+              <div key={i} className="feat-card reveal-scale group relative overflow-hidden">
                 {/* Glow accent top-right */}
-                <div style={{
-                  position: "absolute",
-                  top: -30, right: -30,
-                  width: 120, height: 120,
-                  borderRadius: "50%",
-                  background: f.accent,
-                  filter: "blur(60px)",
-                  opacity: 0.12,
-                  pointerEvents: "none",
-                }} />
+                <div 
+                  className="absolute -top-8 -right-8 w-32 h-32 rounded-full blur-[60px] opacity-10 pointer-events-none transition-opacity group-hover:opacity-20"
+                  style={{ background: f.accent }}
+                />
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-                  <div style={{
-                    width: 48, height: 48,
-                    borderRadius: 14,
-                    border: "1px solid var(--border-bright)",
-                    background: "rgba(255,255,255,0.04)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: f.accent,
-                  }}>
-                    <f.icon style={{ width: 22, height: 22 }} />
+                <div className="flex justify-between items-start mb-6">
+                  <div className="w-12 h-12 rounded-xl border border-[var(--border-bright)] bg-white/5 flex items-center justify-center text-[var(--accent)]" style={{ color: f.accent }}>
+                    <f.icon className="w-6 h-6" />
                   </div>
-                  <span className="font-mono" style={{
-                    fontSize: 9, fontWeight: 700, letterSpacing: "0.15em",
-                    color: f.accent, opacity: 0.7,
-                    border: `1px solid ${f.accent}33`,
-                    borderRadius: 6, padding: "3px 8px",
-                  }}>
+                  <span className="font-mono text-[9px] font-bold tracking-widest uppercase border border-white/10 rounded-md px-2 py-1 opacity-70" style={{ color: f.accent, borderColor: f.accent + '33' }}>
                     {f.tag}
                   </span>
                 </div>
 
-                <h3 className="font-display" style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, letterSpacing: "-0.02em" }}>
+                <h3 className="font-display text-xl md:text-2xl font-bold mb-3 tracking-tight text-white">
                   {f.title}
                 </h3>
-                <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.75, fontWeight: 400 }}>
+                <p className="text-[var(--muted)] text-sm leading-relaxed font-body">
                   {f.desc}
                 </p>
 
-                <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 6, color: f.accent, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  Learn more <ArrowUpRight style={{ width: 14, height: 14 }} />
+                <div className="mt-8 flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer" style={{ color: f.accent }}>
+                  Learn more <ArrowUpRight className="w-3.5 h-3.5" />
                 </div>
               </div>
             ))}
           </div>
 
           {/* ── Bottom CTA Banner ── */}
-          <div className="reveal-scale" style={{
-            marginTop: 100,
-            padding: "56px 64px",
-            borderRadius: 28,
-            border: "1px solid var(--border-bright)",
-            background: "linear-gradient(135deg, rgba(0,255,163,0.05) 0%, rgba(56,189,248,0.04) 100%)",
-            backdropFilter: "blur(20px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 32,
-            position: "relative",
-            overflow: "hidden",
-          }}>
-            <div style={{ position: "absolute", right: -80, top: -80, width: 300, height: 300, borderRadius: "50%", background: "var(--accent)", opacity: 0.04, filter: "blur(60px)" }} />
-            <div>
-              <div className="badge" style={{ marginBottom: 16 }}>
-                <Sparkles style={{ width: 11, height: 11 }} /> Start for free
+          <div className="reveal-scale mt-24 md:mt-40 p-8 md:p-16 rounded-[32px] border border-[var(--border-bright)] bg-gradient-to-br from-[var(--accent)]/5 to-[var(--accent2)]/5 backdrop-blur-2xl flex flex-col md:flex-row items-center justify-between text-left gap-10 relative overflow-hidden">
+            <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-[var(--accent)] opacity-[0.03] blur-[60px]" />
+            <div className="relative">
+              <div className="badge mb-6">
+                <Sparkles className="w-3 h-3" /> Start for free
               </div>
-              <h2 className="font-display" style={{ fontSize: "clamp(24px,4vw,40px)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+              <h2 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight leading-tight text-white">
                 Ready to ship with<br />
                 <span className="gradient-text-accent">confidence?</span>
               </h2>
             </div>
-            <button className="btn-primary" onClick={() => setIsModalOpen(true)} style={{ fontSize: 15, padding: "18px 36px", flexShrink: 0 }}>
-              Create Your Workspace <ArrowRight style={{ width: 18, height: 18 }} />
+            <button className="btn-primary w-full md:w-auto text-base py-4 px-8 shrink-0 relative" onClick={() => setIsModalOpen(true)}>
+              Create Your Workspace <ArrowRight className="w-5 h-5" />
             </button>
           </div>
         </main>
 
         {/* ── Footer ───────────────────────────────────────────────────── */}
-        <footer style={{
-          position: "relative",
-          zIndex: 10,
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "28px 48px",
-          borderTop: "1px solid var(--border)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 16,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, background: "var(--accent)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap style={{ width: 14, height: 14, color: "#000", fill: "#000" }} />
+        <footer className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 py-8 border-t border-[var(--border)] flex flex-col sm:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center">
+              <Zap className="w-4 h-4 text-black fill-black" />
             </div>
-            <span className="font-mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em" }}>
+            <span className="font-mono text-[10px] text-[var(--muted)] tracking-[0.2em] uppercase">
               © 2024 DEVFLOW LABORATORY
             </span>
           </div>
-          <div style={{ display: "flex", gap: 28 }}>
+          <div className="flex gap-8">
             {["Privacy", "Terms", "Contact"].map((t) => (
-              <span key={t} className="font-mono" style={{ fontSize: 11, color: "var(--muted)", cursor: "pointer", letterSpacing: "0.08em", transition: "color 0.2s" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-                onMouseLeave={e => (e.currentTarget.style.color = "var(--muted)")}
-              >
+              <span key={t} className="font-mono text-[10px] text-[var(--muted)] hover:text-white cursor-pointer tracking-wider transition-colors uppercase">
                 {t}
               </span>
             ))}

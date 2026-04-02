@@ -90,12 +90,12 @@ export default function TeamProgress() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20">
+    <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 pb-20 px-4 md:px-0">
       
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-4xl font-black tracking-tighter text-zinc-100">Team Onboarding Progress</h1>
-        <p className="text-zinc-400 font-medium">Real-time overview of individual developer readiness. Expand to see exact task status.</p>
+        <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-zinc-100">Team Onboarding</h1>
+        <p className="text-zinc-400 text-sm font-medium max-w-md">Real-time overview of developer readiness. Expand to see task status.</p>
       </div>
 
       {isLoading ? (

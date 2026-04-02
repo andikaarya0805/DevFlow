@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # DevFlow - Enterprise Project Management System 🚀
 
 DevFlow adalah aplikasi manajemen proyek berarsitektur *full-stack* berbasis Next.js 15 dan Firebase yang dirancang khusus untuk memusatkan progres internal tim, standarisasi kode, serta orientasi kerja (onboarding) developer baru tanpa miskomunikasi.
@@ -61,3 +62,6 @@ Data tidak menggunakan mekanisme konvensional (mengambil dan menunggu/REST API).
    npm run dev
    ```
 Aplikasi DevFlow dapat diakses di URL `http://localhost:3000`.
+=======
+# DevFlow
+>>>>>>> aaff681cea1799b8ce6e231ae59669d31526c04b

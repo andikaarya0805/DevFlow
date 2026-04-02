@@ -68,31 +68,31 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Navbar */}
-        <header className="h-16 flex items-center justify-between px-4 md:px-8 glass border-b border-zinc-800/50 sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
+        <header className="h-16 flex items-center justify-between px-3 md:px-8 glass border-b border-zinc-800/50 sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-zinc-800/50 rounded-xl transition-colors group"
+              className="p-2 hover:bg-zinc-800/50 rounded-xl transition-colors group shrink-0"
               aria-label="Open Menu"
             >
               <Menu className="w-5 h-5 text-zinc-400 group-hover:text-white transition-colors" />
             </button>
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <div className="p-1.5 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/20">
+            <div className="flex items-center gap-2 text-sm font-medium overflow-hidden whitespace-nowrap">
+              <div className="p-1.5 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/20 shrink-0">
                 <Infinity className="w-3.5 h-3.5 text-white" />
               </div>
               <span className="hidden sm:block text-zinc-500">DevFlow</span>
               {projectName && (
                 <>
-                  <ChevronRight className="w-4 h-4 text-zinc-700" />
-                  <span className="text-zinc-200 font-bold truncate max-w-[150px]">{projectName}</span>
+                  <ChevronRight className="w-4 h-4 text-zinc-700 shrink-0" />
+                  <span className="text-zinc-200 font-bold truncate max-w-[100px] md:max-w-[200px]">{projectName}</span>
                 </>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-             <div className="h-8 w-[1px] bg-zinc-800/50 mx-2" />
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
+             <div className="hidden sm:block h-8 w-[1px] bg-zinc-800/50 mx-2" />
              {user && (
                <div className="flex items-center gap-2">
                  <div className="hidden md:flex flex-col items-end mr-2">

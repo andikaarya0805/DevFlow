@@ -27,25 +27,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      
+      // 🌊 SYNC: Ensure state is atomic
       if (currentUser) {
-        // Fetch role from Firestore
-        const docRef = doc(db, "users", currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setRole(data?.role || "developer");
-          setUserData(data);
-        } else {
-          setRole(null);
-          setUserData(null);
+        setUser(currentUser);
+        try {
+          const docRef = doc(db, "users", currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setRole(data?.role || "developer");
+            setUserData(data);
+          }
+        } catch (e) {
+          console.error("Auth sync error:", e);
         }
       } else {
+        setUser(null);
         setRole(null);
         setUserData(null);
+        
         // Whitelist public routes
-        const publicRoutes = ["/login", "/", "/join"]; // Add paths like /join as well
+        const publicRoutes = ["/login", "/", "/join"];
         const isPublicRoute = publicRoutes.some(route => pathname === route || pathname.startsWith("/join/"));
 
         if (!isPublicRoute) {
