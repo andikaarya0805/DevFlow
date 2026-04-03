@@ -20,6 +20,12 @@ export interface Project {
   members: string[]; // Array of user UIDs
   inviteCode: string;
   createdAt: any;
+  // New Automation Fields
+  repoUrl?: string;
+  repoType?: 'github' | 'gitlab';
+  repoToken?: string; // Stored as plain text for this demo (Caution: Sensitive)
+  webhookUrl?: string;
+  stagnancyLimitHours?: number; 
 }
 
 // Generate a random 8-character invite code
@@ -39,7 +45,8 @@ export const createProject = async (name: string, description: string, adminId: 
       adminId,
       members: [adminId],
       inviteCode,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      stagnancyLimitHours: 24, // Default to 24 hours
     };
     
     await setDoc(doc(db, "projects", projectId), projectData);

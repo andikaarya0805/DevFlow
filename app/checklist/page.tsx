@@ -7,7 +7,7 @@ import {
   Sparkles, Search, Settings2, Plus, X, Save, Trash2, Edit2
 } from "lucide-react";
 import ChecklistItem from "@/components/ChecklistItem";
-import { db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from "@/lib/firebase";
+import { db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, serverTimestamp, updateUserProgress } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { INITIAL_CHECKLIST } from "@/lib/constants";
 import toast from "react-hot-toast";
@@ -30,6 +30,8 @@ export default function ChecklistPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [isCreating, setIsCreating] = useState(false);
+  const [projectRepo, setProjectRepo] = useState<any>(null);
+  const [stagnancyLimit, setStagnancyLimit] = useState(24);
 
   // 1. Fetch Global Tasks (with auto-seed if empty)
   useEffect(() => {
@@ -67,6 +69,25 @@ export default function ChecklistPage() {
     return () => unsub();
   }, [user, projectId]);
 
+  // 3. Fetch Project Repo Settings
+  useEffect(() => {
+    if (!projectId) return;
+    const unsub = onSnapshot(doc(db, "projects", projectId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.repoUrl) {
+          setProjectRepo({
+            url: data.repoUrl,
+            type: data.repoType || 'github',
+            token: data.repoToken
+          });
+        }
+        setStagnancyLimit(data.stagnancyLimitHours || 24);
+      }
+    });
+    return () => unsub();
+  }, [projectId]);
+
   // 3. User Toggle Progress Logic
   const toggleItem = (id: string, currentlyCompleted: boolean) => {
     if (isManageMode) return; // Disable toggle when managing
@@ -95,6 +116,9 @@ export default function ChecklistPage() {
         lastActive: serverTimestamp(),
         status: currentPercent === 100 ? "Done" : "Active"
       }, { merge: true });
+
+      // Also Update User Global Summary for Consistency
+      await updateUserProgress(user.uid, currentPercent);
       // toast.success("Progress safely saved to cloud", { id: "sync-toast" });
     } catch (error) {
       console.error("Sync error:", error);
@@ -331,6 +355,7 @@ export default function ChecklistPage() {
                     <ChecklistItem 
                       id={item.id} title={item.title} description={item.description} category={item.category}
                       completed={completedTaskIds.includes(item.id)} onToggle={(id) => toggleItem(id, completedTaskIds.includes(id))}
+                      validationType={item.validationType} validationCriteria={item.validationCriteria} projectRepo={projectRepo}
                     />
                     {isManageMode && (
                       <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden pointer-events-auto z-20">
@@ -361,6 +386,7 @@ export default function ChecklistPage() {
                     <ChecklistItem 
                       id={item.id} title={item.title} description={item.description} category={item.category}
                       completed={completedTaskIds.includes(item.id)} onToggle={(id) => toggleItem(id, completedTaskIds.includes(id))}
+                      validationType={item.validationType} validationCriteria={item.validationCriteria} projectRepo={projectRepo}
                     />
                     {isManageMode && (
                       <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden pointer-events-auto z-20">
@@ -391,6 +417,7 @@ export default function ChecklistPage() {
                     <ChecklistItem 
                       id={item.id} title={item.title} description={item.description} category={item.category}
                       completed={completedTaskIds.includes(item.id)} onToggle={(id) => toggleItem(id, completedTaskIds.includes(id))}
+                      validationType={item.validationType} validationCriteria={item.validationCriteria} projectRepo={projectRepo}
                     />
                     {isManageMode && (
                       <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden pointer-events-auto z-20">

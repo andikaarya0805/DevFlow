@@ -30,15 +30,19 @@ export const INITIAL_CHECKLIST = [
   { 
     id: "5", 
     title: "Feature Branching", 
-    description: "Create feature branches from 'develop' using the 'feature/JIRA-ID' format.", 
+    description: "Create feature branches from 'develop' using the 'feature/.*' format.", 
     completed: false, 
-    category: "Workflow" as const 
+    category: "Workflow" as const,
+    validationType: "branch",
+    validationCriteria: "feature/.*"
   },
   { 
     id: "6", 
     title: "Pull Request Template", 
     description: "Fill out all required fields in the PR template including testing steps.", 
     completed: false, 
-    category: "Workflow" as const 
+    category: "Workflow" as const,
+    validationType: "pr",
+    validationCriteria: ".*" // Any PR
   },
 ];

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Circle, Clock } from "lucide-react";
+import { CheckCircle2, Circle, Clock, GitBranch, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { db, doc, updateDoc } from "@/lib/firebase";
+import { verifyGitTask } from "@/lib/git";
+import toast from "react-hot-toast";
 
 interface ChecklistItemProps {
   id: string;
@@ -12,6 +13,14 @@ interface ChecklistItemProps {
   completed: boolean;
   category: "Environment" | "Standards" | "Workflow";
   onToggle: (id: string, completed: boolean) => void;
+  // Git Validation Props
+  validationType?: 'branch' | 'pr';
+  validationCriteria?: string;
+  projectRepo?: {
+    url: string;
+    type: 'github' | 'gitlab';
+    token?: string;
+  };
 }
 
 export default function ChecklistItem({
@@ -20,8 +29,43 @@ export default function ChecklistItem({
   description,
   completed,
   category,
-  onToggle
+  onToggle,
+  validationType,
+  validationCriteria,
+  projectRepo
 }: ChecklistItemProps) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleVerify = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!validationType || !validationCriteria || !projectRepo?.url) {
+      toast.error("Git configuration missing for this task.");
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const result = await verifyGitTask(
+        projectRepo.type,
+        projectRepo.url,
+        projectRepo.token,
+        validationType,
+        validationCriteria
+      );
+
+      if (result.success) {
+        toast.success(result.message);
+        onToggle(id, true);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error("Verification failed. Please check your repo settings.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   return (
     <div 
       className={cn(
@@ -30,7 +74,7 @@ export default function ChecklistItem({
           ? "border-emerald-500/30 bg-emerald-500/[0.02] opacity-70" 
           : "border-zinc-800/50 hover:border-indigo-500/30 hover:bg-zinc-800/40"
       )}
-      onClick={() => onToggle(id, !completed)}
+      onClick={() => !validationType && onToggle(id, !completed)}
     >
       {/* Dynamic Background Glow */}
       <div className={cn(
@@ -46,7 +90,11 @@ export default function ChecklistItem({
             </div>
           ) : (
             <div className="p-1.5 bg-zinc-800 rounded-xl group-hover:bg-indigo-500/20 transition-colors">
-              <Circle className="w-5 h-5 text-zinc-500 group-hover:text-indigo-400" />
+              {validationType ? (
+                <GitBranch className="w-5 h-5 text-zinc-500 group-hover:text-indigo-400" />
+              ) : (
+                <Circle className="w-5 h-5 text-zinc-500 group-hover:text-indigo-400" />
+              )}
             </div>
           )}
         </div>
@@ -75,29 +123,43 @@ export default function ChecklistItem({
             {description}
           </p>
           
-          <div className="pt-2 flex items-center gap-3">
+          <div className="pt-2 flex items-center justify-between">
             {completed ? (
               <div className="text-[10px] font-bold text-emerald-500/60 flex items-center gap-1.5 uppercase tracking-wider">
                 <CheckCircle2 className="w-3 h-3" />
                 Verified Complete
               </div>
             ) : (
-              <div className="text-[10px] font-bold text-zinc-600 flex items-center gap-1.5 uppercase tracking-wider group-hover:text-indigo-400/60 transition-colors">
-                <Clock className="w-3 h-3" />
-                Estimated 15m
-                <div className="w-1 h-1 rounded-full bg-zinc-800 mx-1" />
-                Priority High
+              <div className="flex items-center gap-3 w-full">
+                <div className="text-[10px] font-bold text-zinc-600 flex items-center gap-1.5 uppercase tracking-wider group-hover:text-indigo-400/60 transition-colors">
+                  <Clock className="w-3 h-3" />
+                  Auto-verify {validationType === 'branch' ? 'Branch' : 'PR'}
+                </div>
+                
+                {validationType && (
+                  <button 
+                    onClick={handleVerify}
+                    disabled={isVerifying}
+                    className="ml-auto px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    {isVerifying ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <GitBranch className="w-3 h-3" />
+                        Verify Now
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
-      
-      {/* Interaction Ripple Effect (Subtle) */}
-      <div className={cn(
-        "absolute inset-0 bg-white/5 opacity-0 active:opacity-100 transition-opacity duration-100 pointer-events-none",
-        completed && "hidden"
-      )} />
     </div>
   );
 }

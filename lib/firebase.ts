@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, query, where, getDocs, doc, updateDoc, onSnapshot, setDoc, getDoc, serverTimestamp, deleteDoc, arrayUnion } from "firebase/firestore";
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, onSnapshot, setDoc, getDoc, serverTimestamp, deleteDoc, arrayUnion, Timestamp } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 
 const firebaseConfig = {
@@ -20,16 +20,28 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 export { db, auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, collection, query, where, getDocs, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp, deleteDoc, arrayUnion };
 
-// Persist user progress to Firestore
-export const updateUserProgress = async (userId: string, progress: number) => {
+// Persist user progress to Firestore (Project-specific + Global Summary)
+export const updateUserProgress = async (userId: string, progress: number, projectId?: string) => {
   try {
+    // 1. Update Global User Summary
     const userRef = doc(db, "users", userId);
     await updateDoc(userRef, { 
       progress,
-      lastUpdated: new Date(),
+      lastUpdated: serverTimestamp(),
       status: progress === 100 ? "Done" : "Active"
     });
-    console.log(`Progress for ${userId} updated to ${progress}%`);
+
+    // 2. Update Project-Specific Progress if projectId is provided
+    if (projectId) {
+      const progressRef = doc(db, "user_project_progress", `${userId}_${projectId}`);
+      await updateDoc(progressRef, {
+        progress,
+        lastActive: serverTimestamp(),
+        status: progress === 100 ? "Done" : "Active"
+      });
+    }
+
+    console.log(`Progress for ${userId} in ${projectId || 'Global'} updated to ${progress}%`);
   } catch (error) {
     console.error("Error updating progress:", error);
   }
@@ -67,5 +79,51 @@ export const getTeamProgress = async () => {
       { id: "fready-dev", name: "Fready", role: "Backend Engineer", progress: 85, status: "Active" },
       { id: "ryan-dev", name: "Ryan", role: "UI/UX Designer", progress: 62, status: "Warning" }
     ];
+  }
+};
+
+// Update project settings (Admin only)
+export const updateProjectSettings = async (projectId: string, data: any) => {
+  try {
+    const projectRef = doc(db, "projects", projectId);
+    await updateDoc(projectRef, {
+      ...data,
+      lastUpdated: serverTimestamp()
+    });
+    console.log(`Settings for project ${projectId} updated.`);
+  } catch (error) {
+    console.error("Error updating project settings:", error);
+  }
+};
+
+// Check for team stagnation and auto-mark as Blocked if necessary
+export const checkTeamStagnation = async (projectId: string, limitHours: number) => {
+  try {
+    const q = query(collection(db, "user_project_progress"), where("projectId", "==", projectId));
+    const querySnapshot = await getDocs(q);
+    const now = new Date();
+    let blockedCount = 0;
+    
+    for (const docSnap of querySnapshot.docs) {
+      const data = docSnap.data();
+      if (data.status === "Done" || data.status === "Blocked") continue;
+
+      const lastActive = data.lastActive?.toDate() || new Date(0);
+      const diffMs = now.getTime() - lastActive.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      if (diffHours >= limitHours) {
+        await updateDoc(docSnap.ref, {
+          status: "Blocked",
+          blockedAt: serverTimestamp(),
+          stagnant: true
+        });
+        blockedCount++;
+        console.log(`User ${data.userId} marked as stagnant (last active ${diffHours.toFixed(1)}h ago)`);
+      }
+    }
+    return blockedCount;
+  } catch (error) {
+    console.error("Error checking stagnation:", error);
   }
 };

@@ -9,11 +9,20 @@ import {
   TrendingUp, 
   ArrowRight,
   Plus,
-  Layout
+  Layout,
+  Settings,
+  Globe,
+  Github,
+  Bell,
+  Clock as ClockIcon,
+  Zap
 } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import ProgressBar from "@/components/ProgressBar";
-import { db, collection, onSnapshot, query, where, getDocs, doc, getDoc } from "@/lib/firebase";
+import AIInsights from "@/components/AIInsights";
+import { db, collection, onSnapshot, query, where, getDocs, doc, getDoc, updateDoc, checkTeamStagnation } from "@/lib/firebase";
+import { sendWebhookNotification } from "@/lib/notifications";
+import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -24,6 +33,15 @@ export default function Dashboard() {
   const [teamData, setTeamData] = useState<any[]>([]);
   const [globalTasksCount, setGlobalTasksCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [technicalDebts, setTechnicalDebts] = useState<any[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    repoUrl: "",
+    repoType: "github",
+    repoToken: "",
+    webhookUrl: "",
+    stagnancyLimitHours: 24
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,7 +52,15 @@ export default function Dashboard() {
         const projectRef = doc(db, "projects", projectId);
         const projectSnap = await getDoc(projectRef);
         if (projectSnap.exists()) {
-          setProjectData(projectSnap.data());
+          const data = projectSnap.data();
+          setProjectData(data);
+          setSettingsForm({
+            repoUrl: data.repoUrl || "",
+            repoType: data.repoType || "github",
+            repoToken: data.repoToken || "",
+            webhookUrl: data.webhookUrl || "",
+            stagnancyLimitHours: data.stagnancyLimitHours || 24
+          });
         }
       }
 
@@ -57,17 +83,23 @@ export default function Dashboard() {
         // Fetch User Details for these progress docs to get names/emails
         const expandedTeam = await Promise.all(progressDocs.map(async (p: any) => {
            const userSnap = await getDoc(doc(db, "users", p.userId));
-           const userData = userSnap.data();
-           return { ...p, ...userData, id: p.userId }; // Ensure ID is userId
+           const userData = userSnap.data() || {};
+           return { ...userData, ...p, id: p.userId }; // Progress Data (p) must spread last to win
         }));
         
         setTeamData(expandedTeam);
         setLoading(false);
       });
 
+      // 4. Real-time Technical Debts
+      const unsubDebts = onSnapshot(collection(db, "technical_debts"), (snapshot) => {
+        setTechnicalDebts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+
       return () => {
         unsubTasks();
         unsubProgress();
+        unsubDebts();
       };
     };
 
@@ -86,6 +118,45 @@ export default function Dashboard() {
     
   const alignmentRate = averageProgress;
   const driftRate = 100 - averageProgress;
+
+  const handleSaveSettings = async () => {
+    if (!projectId) return;
+    try {
+        await updateDoc(doc(db, "projects", projectId), settingsForm);
+        toast.success("Project automation settings updated");
+        setShowSettings(false);
+    } catch (err) {
+        toast.error("Failed to update settings");
+    }
+  };
+
+  const handleRunHealthCheck = async () => {
+    if (!projectId || !projectData) return;
+    const loadingToast = toast.loading("Checking team pulse...");
+    try {
+      const stagnancyLimit = projectData.stagnancyLimitHours || 24;
+      const blockedCount = await checkTeamStagnation(projectId, stagnancyLimit);
+      
+      if (blockedCount && blockedCount > 0 && projectData.webhookUrl) {
+          await sendWebhookNotification(
+              projectData.webhookUrl,
+              { 
+                projectId: projectId,
+                projectName: projectData?.name || "Unknown Project",
+                userId: "SYSTEM_BOT",
+                userName: "DevFlow Automation",
+                status: "Alert",
+                message: `⚠️ ${blockedCount} developers marked as BLOCKED due to inactivity (> ${stagnancyLimit}h).`
+              }
+          );
+          toast.success(`${blockedCount} developers marked as blocked & notified via Webhook`, { id: loadingToast });
+      } else {
+          toast.success("Team health check complete. All pulse signals normal.", { id: loadingToast });
+      }
+    } catch (err) {
+      toast.error("Health check failed", { id: loadingToast });
+    }
+  };
 
   if (loading) {
     return (
@@ -116,8 +187,102 @@ export default function Dashboard() {
             <Plus className="w-4 h-4" />
             New Report
           </button>
+          
+          <button 
+            onClick={handleRunHealthCheck}
+            className="p-3 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-2xl hover:text-emerald-300 hover:border-emerald-500/50 transition-all active:scale-95 shadow-xl group/check"
+            title="Run Health Check"
+          >
+            <Zap className="w-5 h-5 group-hover/check:animate-pulse" />
+          </button>
+
+          <button 
+            onClick={() => setShowSettings(true)}
+            className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-2xl hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-xl"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
         </div>
       </header>
+
+      {/* Settings Modal */}
+      {showSettings && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-[3rem] shadow-2xl overflow-hidden p-8 md:p-12 space-y-8 animate-in zoom-in-95 duration-300">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                        <h2 className="text-3xl font-black text-white tracking-tight">Automation Settings</h2>
+                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Git hooks, Webhooks & Stagnancy</p>
+                    </div>
+                    <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-zinc-900 rounded-xl text-zinc-500">
+                        <Plus className="w-6 h-6 rotate-45" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+                            <Github className="w-3.5 h-3.5" /> Repository Sync
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase mb-1 block">Repo URL</label>
+                                <input 
+                                    value={settingsForm.repoUrl} onChange={(e) => setSettingsForm({...settingsForm, repoUrl: e.target.value})}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 transition-all" 
+                                    placeholder="https://github.com/org/repo"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase mb-1 block">Personal Access Token</label>
+                                <input 
+                                    type="password"
+                                    value={settingsForm.repoToken} onChange={(e) => setSettingsForm({...settingsForm, repoToken: e.target.value})}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 transition-all" 
+                                    placeholder="ghp_xxxxxxxxxxxx"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                            <Bell className="w-3.5 h-3.5" /> Push Notifications
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase mb-1 block">Webhook URL (Slack/Discord)</label>
+                                <input 
+                                    value={settingsForm.webhookUrl} onChange={(e) => setSettingsForm({...settingsForm, webhookUrl: e.target.value})}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 transition-all" 
+                                    placeholder="https://hooks.slack.com/..."
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase mb-1 block">Stagnancy Alert (Hours)</label>
+                                <div className="flex items-center gap-3">
+                                    <ClockIcon className="w-4 h-4 text-zinc-600" />
+                                    <input 
+                                        type="number"
+                                        value={settingsForm.stagnancyLimitHours} onChange={(e) => setSettingsForm({...settingsForm, stagnancyLimitHours: parseInt(e.target.value)})}
+                                        className="w-20 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500 transition-all" 
+                                    />
+                                    <span className="text-xs text-zinc-500 font-bold">hours of inactivity</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-zinc-900 flex justify-end gap-3">
+                      <button onClick={() => setShowSettings(false)} className="px-6 py-3 text-sm font-bold text-zinc-500 hover:text-white transition-colors">Cancel</button>
+                      <button onClick={handleSaveSettings} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-2xl shadow-xl shadow-indigo-600/20 active:scale-95 transition-all">
+                        Save Automation Settings
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Stats Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -220,6 +385,8 @@ export default function Dashboard() {
             </div>
           </div>
           
+          <AIInsights teamProgress={teamData} technicalDebts={technicalDebts} />
+
           <div className="glass p-8 rounded-[2rem] border-zinc-800/50">
             <h3 className="text-lg font-bold text-white tracking-tight mb-4 text-center">Standards Drift</h3>
             <div className="relative w-40 h-40 mx-auto">
