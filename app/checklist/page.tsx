@@ -11,12 +11,14 @@ import { db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, 
 import { useAuth } from "@/context/AuthContext";
 import { INITIAL_CHECKLIST } from "@/lib/constants";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/context/ConfirmContext";
 
 export default function ChecklistPage() {
   const { user, role, userData } = useAuth();
   const searchParams = useSearchParams();
   const projectId = searchParams.get("projectId") || userData?.currentProjectId;
   const isAdmin = role === "admin";
+  const confirm = useConfirm();
 
   const [globalTasks, setGlobalTasks] = useState<any[]>([]);
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
@@ -169,14 +171,26 @@ export default function ChecklistPage() {
   };
 
   const handleDeleteTask = async (id: string) => {
-    if (confirm("Are you sure you want to delete this global task?")) {
+    const isConfirmed = await confirm({
+      title: "Delete Global Task?",
+      message: "Are you sure you want to permanently delete this global task? This cannot be undone.",
+      type: "danger"
+    });
+
+    if (isConfirmed) {
       await deleteDoc(doc(db, "global_tasks", id));
       toast.success("Task permanently deleted.");
     }
   };
 
   const syncWithGlobalDefaults = async () => {
-    if (!confirm("This will refresh all global tasks from system defaults. New custom tasks will be preserved (except those with same ID). Continue?")) return;
+    const isConfirmed = await confirm({
+      title: "Sync System Defaults?",
+      message: "This will refresh all global tasks from system defaults. New custom tasks will be preserved (except those with same ID). Continue?",
+      type: "info"
+    });
+
+    if (!isConfirmed) return;
     
     const loadToast = toast.loading("Syncing with global defaults...");
     try {

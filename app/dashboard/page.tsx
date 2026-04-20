@@ -19,6 +19,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useConfirm } from "@/context/ConfirmContext";
 import StatCard from "@/components/StatCard";
 import ProgressBar from "@/components/ProgressBar";
 import AIInsights from "@/components/AIInsights";
@@ -30,6 +31,7 @@ import { cn } from "@/lib/utils";
 export default function Dashboard() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get("projectId");
+  const confirm = useConfirm();
   
   const { role } = useAuth();
   const isAdmin = role === "admin";
@@ -165,7 +167,14 @@ export default function Dashboard() {
 
   const handleRemoveMember = async (userId: string, memberName: string) => {
     if (!projectId || !isAdmin) return;
-    if (!confirm(`Are you sure you want to remove ${memberName} from this project? This will delete all their progress checkpoints.`)) return;
+    
+    const isConfirmed = await confirm({
+      title: \"Remove Team Member?\",
+      message: `Are you sure you want to remove ${memberName} from this project? This will delete all their progress checkpoints.`,
+      type: \"danger\"
+    });
+
+    if (!isConfirmed) return;
 
     const loadToast = toast.loading(`Removing ${memberName}...`);
     try {
