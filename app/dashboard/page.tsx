@@ -169,9 +169,9 @@ export default function Dashboard() {
     if (!projectId || !isAdmin) return;
     
     const isConfirmed = await confirm({
-      title: \"Remove Team Member?\",
+      title: "Remove Team Member?",
       message: `Are you sure you want to remove ${memberName} from this project? This will delete all their progress checkpoints.`,
-      type: \"danger\"
+      type: "danger"
     });
 
     if (!isConfirmed) return;
