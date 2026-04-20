@@ -175,6 +175,21 @@ export default function ChecklistPage() {
     }
   };
 
+  const syncWithGlobalDefaults = async () => {
+    if (!confirm("This will refresh all global tasks from system defaults. New custom tasks will be preserved (except those with same ID). Continue?")) return;
+    
+    const loadToast = toast.loading("Syncing with global defaults...");
+    try {
+        for (const task of INITIAL_CHECKLIST) {
+            const { completed, ...dbTask } = task as any;
+            await setDoc(doc(db, "global_tasks", dbTask.id), dbTask);
+        }
+        toast.success("Checklist synced with latest standards!", { id: loadToast });
+    } catch (err) {
+        toast.error("Sync failed", { id: loadToast });
+    }
+  };
+
   // Derive final list
   const filteredTasks = globalTasks.filter((item: any) => 
     item.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -264,20 +279,31 @@ export default function ChecklistPage() {
           </div>
 
           {isAdmin && (
-            <button 
-              onClick={() => {
-                setIsManageMode(!isManageMode);
-                setEditingId(null);
-              }}
-              className={`flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-2xl transition-all duration-300 shadow-xl active:scale-95 ${
-                isManageMode 
-                  ? "bg-zinc-800 text-white border border-zinc-700" 
-                  : "bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20"
-              }`}
-            >
-              {isManageMode ? <X className="w-4 h-4" /> : <Settings2 className="w-4 h-4" />}
-              {isManageMode ? "Exit Admin Mode" : "Manage Tasks"}
-            </button>
+            <div className="flex items-center gap-2">
+              {isManageMode && (
+                <button 
+                  onClick={syncWithGlobalDefaults}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-2xl bg-emerald-600/10 text-emerald-400 hover:bg-emerald-600/20 border border-emerald-500/20 transition-all duration-300 shadow-xl active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  Sync Defaults
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  setIsManageMode(!isManageMode);
+                  setEditingId(null);
+                }}
+                className={`flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-2xl transition-all duration-300 shadow-xl active:scale-95 ${
+                  isManageMode 
+                    ? "bg-zinc-800 text-white border border-zinc-700" 
+                    : "bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20"
+                }`}
+              >
+                {isManageMode ? <X className="w-4 h-4" /> : <Settings2 className="w-4 h-4" />}
+                {isManageMode ? "Exit Admin Mode" : "Manage Tasks"}
+              </button>
+            </div>
           )}
         </div>
       </header>

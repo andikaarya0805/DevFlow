@@ -133,7 +133,7 @@ export default function ChecklistItem({
               <div className="flex items-center gap-3 w-full">
                 <div className="text-[10px] font-bold text-zinc-600 flex items-center gap-1.5 uppercase tracking-wider group-hover:text-indigo-400/60 transition-colors">
                   <Clock className="w-3 h-3" />
-                  Auto-verify {validationType === 'branch' ? 'Branch' : 'PR'}
+                  Auto-verify {validationType === 'branch' ? 'Branch' : validationType === 'pr' ? 'PR' : 'Pipeline'}
                 </div>
                 
                 {validationType && (

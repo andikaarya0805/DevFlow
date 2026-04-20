@@ -11,7 +11,7 @@ export const verifyGitTask = async (
   provider: GitProvider,
   repoUrl: string,
   token: string | undefined,
-  validationType: 'branch' | 'pr',
+  validationType: 'branch' | 'pr' | 'status',
   criteria: string
 ): Promise<GitValidationResult> => {
   try {
@@ -33,7 +33,7 @@ export const verifyGitTask = async (
 const verifyGithub = async (
   repoUrl: string,
   token: string | undefined,
-  validationType: 'branch' | 'pr',
+  validationType: 'branch' | 'pr' | 'status',
   criteria: string
 ): Promise<GitValidationResult> => {
   // Extract owner and repo from URL: https://github.com/owner/repo
@@ -65,9 +65,29 @@ const verifyGithub = async (
     }
   } 
   
+  if (validationType === 'status') {
+    // Check if GitHub Actions (Check Runs) passed for a branch or ref
+    const ref = criteria || 'main'; // default to main if not specified
+    const { data: checkRuns } = await axios.get(`${baseUrl}/commits/${ref}/check-runs`, { headers });
+    
+    if (checkRuns.total_count === 0) {
+      return { success: false, message: `No CI/CD check runs found for ref "${ref}".` };
+    }
+
+    const allPassed = checkRuns.check_runs.every((run: any) => 
+      run.status === 'completed' && run.conclusion === 'success'
+    );
+
+    if (allPassed) {
+      return { success: true, message: `All ${checkRuns.total_count} CI/CD checks passed for "${ref}".` };
+    } else {
+      const failedCount = checkRuns.check_runs.filter((r: any) => r.conclusion !== 'success').length;
+      return { success: false, message: `${failedCount}/${checkRuns.total_count} CI/CD checks failed or pending for "${ref}".` };
+    }
+  }
+
   if (validationType === 'pr') {
     const { data: prs } = await axios.get(`${baseUrl}/pulls?state=all`, { headers });
-    // For PRs, we might look for a specific title or author
     const exists = prs.some((pr: any) => {
         const regex = new RegExp(criteria);
         return regex.test(pr.title) || regex.test(pr.head.ref);
