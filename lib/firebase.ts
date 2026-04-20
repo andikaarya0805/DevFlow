@@ -127,3 +127,13 @@ export const checkTeamStagnation = async (projectId: string, limitHours: number)
     console.error("Error checking stagnation:", error);
   }
 };
+export const removeUserFromProject = async (userId: string, projectId: string) => {
+  try {
+    const progressRef = doc(db, "user_project_progress", `${userId}_${projectId}`);
+    await deleteDoc(progressRef);
+    console.log(`User ${userId} removed from project ${projectId}`);
+  } catch (error) {
+    console.error("Error removing user:", error);
+    throw error;
+  }
+};

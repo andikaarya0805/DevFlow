@@ -15,12 +15,14 @@ import {
   Github,
   Bell,
   Clock as ClockIcon,
-  Zap
+  Zap,
+  Trash2
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import StatCard from "@/components/StatCard";
 import ProgressBar from "@/components/ProgressBar";
 import AIInsights from "@/components/AIInsights";
-import { db, collection, onSnapshot, query, where, getDocs, doc, getDoc, updateDoc, checkTeamStagnation } from "@/lib/firebase";
+import { db, collection, onSnapshot, query, where, getDocs, doc, getDoc, updateDoc, checkTeamStagnation, removeUserFromProject } from "@/lib/firebase";
 import { sendWebhookNotification } from "@/lib/notifications";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
@@ -29,6 +31,9 @@ export default function Dashboard() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get("projectId");
   
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+
   const [projectData, setProjectData] = useState<any>(null);
   const [teamData, setTeamData] = useState<any[]>([]);
   const [globalTasksCount, setGlobalTasksCount] = useState(0);
@@ -155,6 +160,19 @@ export default function Dashboard() {
       }
     } catch (err) {
       toast.error("Health check failed", { id: loadingToast });
+    }
+  };
+
+  const handleRemoveMember = async (userId: string, memberName: string) => {
+    if (!projectId || !isAdmin) return;
+    if (!confirm(`Are you sure you want to remove ${memberName} from this project? This will delete all their progress checkpoints.`)) return;
+
+    const loadToast = toast.loading(`Removing ${memberName}...`);
+    try {
+      await removeUserFromProject(userId, projectId);
+      toast.success(`${memberName} has been removed from the project.`, { id: loadToast });
+    } catch (err) {
+      toast.error("Failed to remove member", { id: loadToast });
     }
   };
 
@@ -343,15 +361,27 @@ export default function Dashboard() {
                         <p className="text-zinc-500 text-xs font-medium uppercase tracking-widest">{member.role}</p>
                       </div>
                     </div>
-                    <span className={cn(
-                      "text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border",
-                      member.status === "Done" ? "border-emerald-500/20 text-emerald-500 bg-emerald-500/5" :
-                      member.status === "Warning" ? "border-amber-500/20 text-amber-500 bg-amber-500/5" :
-                      member.status === "Behind" ? "border-red-500/20 text-red-500 bg-red-500/5" :
-                      "border-indigo-500/20 text-indigo-500 bg-indigo-500/5"
-                    )}>
-                      {member.status || "Active"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={cn(
+                        "text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border",
+                        member.status === "Done" ? "border-emerald-500/20 text-emerald-500 bg-emerald-500/5" :
+                        member.status === "Warning" ? "border-amber-500/20 text-amber-500 bg-amber-500/5" :
+                        member.status === "Behind" ? "border-red-500/20 text-red-500 bg-red-500/5" :
+                        "border-indigo-500/20 text-indigo-500 bg-indigo-500/5"
+                        )}>
+                        {member.status || "Active"}
+                        </span>
+                        
+                        {isAdmin && (
+                            <button 
+                                onClick={() => handleRemoveMember(member.id, member.name || member.email)}
+                                className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                title="Remove Member"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
                   </div>
                   <ProgressBar label="Overall Health" value={member.progress || 0} showValue={true} size="md" />
                 </div>
