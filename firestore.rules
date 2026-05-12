@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ─────────────────────────────────────────────────────
+
+    // Cek apakah user sudah login
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Ambil role user dari Firestore (cross-collection read)
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Cek apakah user adalah admin/PM
+    function isAdmin() {
+      return isAuth() && getUserRole() == "admin";
+    }
+
+    // Cek apakah user adalah developer
+    function isDeveloper() {
+      return isAuth() && getUserRole() == "developer";
+    }
+
+    // ─── USERS collection ─────────────────────────────────────────────────────
+    // - Semua authenticated user bisa baca (untuk dashboard team progress)
+    // - User hanya bisa create/update dokumen milik sendiri
+    // - Admin bisa update dokumen user lain (untuk set role dll)
+    match /users/{userId} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && (
+                        request.auth.uid == userId ||  // Diri sendiri
+                        isAdmin()                       // Admin bisa update siapa pun
+                    );
+      allow delete: if false; // Tidak boleh hapus dari client
+    }
+
+    // ─── PROJECTS collection ──────────────────────────────────────────────────
+    // - Semua authenticated user bisa baca (untuk lookup invite code)
+    // - Hanya authenticated user bisa create (langsung jadi admin)
+    // - Update:
+    //     * Member project bisa update (untuk perubahan settings oleh admin)
+    //     * ATAU user yang sedang join (belum jadi member, tapi menambahkan diri ke members)
+    // - Delete: hanya adminId project
+    match /projects/{projectId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+
+      // Dua case untuk update:
+      // 1. User sudah jadi member → bisa update (admin update settings)
+      // 2. User join baru → hanya boleh menambahkan dirinya ke members (arrayUnion)
+      allow update: if isAuth() && (
+                        // Case 1: sudah member
+                        request.auth.uid in resource.data.members ||
+                        // Case 2: user join baru (menambahkan uid sendiri ke members)
+                        (
+                          request.auth.uid in request.resource.data.members &&
+                          // Pastikan tidak mengubah field lain yang sensitif
+                          request.resource.data.adminId == resource.data.adminId &&
+                          request.resource.data.inviteCode == resource.data.inviteCode
+                        )
+                    );
+
+      allow delete: if isAuth() && request.auth.uid == resource.data.adminId;
+    }
+
+    // ─── USER_PROJECT_PROGRESS collection ─────────────────────────────────────
+    // Doc ID format: {userId}_{projectId}
+    // - Admin bisa baca semua (untuk lihat team progress di dashboard)
+    // - Developer hanya bisa baca/update progress miliknya sendiri
+    // - Admin bisa delete (untuk remove member dari project)
+    match /user_project_progress/{progressId} {
+      allow read:   if isAuth() && (
+                        resource.data.userId == request.auth.uid ||  // Milik sendiri
+                        isAdmin()                                      // Admin lihat semua
+                    );
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && (
+                        resource.data.userId == request.auth.uid ||  // Update sendiri (developer checklist)
+                        isAdmin()                                      // Admin update status (stagnancy check)
+                    );
+      allow delete: if isAdmin(); // Hanya admin yang bisa remove member
+    }
+
+    // ─── GLOBAL_TASKS collection ──────────────────────────────────────────────
+    // Ini adalah task/checklist yang dibuat oleh PM untuk semua developer
+    // - Semua member bisa baca (developer butuh ini untuk checklist mereka)
+    // - Hanya admin/PM yang bisa create, update, delete task
+    match /global_tasks/{taskId} {
+      allow read:                  if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── TECHNICAL_DEBTS collection ───────────────────────────────────────────
+    // - Semua member bisa baca
+    // - Hanya admin yang bisa manage
+    match /technical_debts/{debtId} {
+      allow read:                  if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── SETTINGS collection ──────────────────────────────────────────────────
+    // - Semua member bisa baca
+    // - Hanya admin yang bisa ubah settings
+    match /settings/{settingId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+  }
+}

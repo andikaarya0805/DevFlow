@@ -185,6 +185,29 @@ export default function Dashboard() {
     }
   };
 
+  if (!loading && !projectId) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-6 max-w-sm text-center p-8">
+          <div className="w-16 h-16 rounded-3xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
+            <Layout className="w-8 h-8 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-white tracking-tight mb-2">No Project Selected</h2>
+            <p className="text-zinc-500 text-sm leading-relaxed">
+              You haven&apos;t selected a project yet. Create a new workspace or join one using an invite link.
+            </p>
+          </div>
+          <div className="flex gap-3 flex-wrap justify-center">
+            <a href="/" className="px-6 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-500 transition-all">
+              Create / Join Project
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -195,6 +218,7 @@ export default function Dashboard() {
       </div>
     );
   }
+
 
   return (
     <div className="p-6 md:p-10 space-y-10">
