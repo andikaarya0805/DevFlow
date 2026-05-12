@@ -1,91 +1,91 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { JetBrains_Mono } from "next/font/google";
 import { CheckCircle2, Clock, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { db, collection, query, where, onSnapshot, getDoc, doc } from "@/lib/firebase";
 import { useSearchParams } from "next/navigation";
-import { INITIAL_CHECKLIST } from "@/lib/constants";
+import { useAuth } from "@/context/AuthContext";
 
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"] });
 
 export default function TeamProgress() {
   const searchParams = useSearchParams();
-  const projectId = searchParams.get("projectId");
+  const { userData } = useAuth();
+  // Gunakan projectId dari URL, fallback ke currentProjectId user
+  const projectId = searchParams.get("projectId") || userData?.currentProjectId;
   
-  const [teamData, setTeamData] = useState<any[]>([]);
+  const [teamData, setTeamData]     = useState<any[]>([]);
   const [globalTasks, setGlobalTasks] = useState<any[]>([]);
+  const [memberIds, setMemberIds]   = useState<string[]>([]);
+  const [adminId, setAdminId]       = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading]   = useState(true);
 
+  // ── 1. Listen to global_tasks (real-time) ─────────────────────────────────
   useEffect(() => {
-    const unsubTasks = onSnapshot(collection(db, "global_tasks"), (snapshot) => {
-      setGlobalTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const unsub = onSnapshot(collection(db, "global_tasks"), (snap) => {
+      setGlobalTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
+    return () => unsub();
+  }, []);
 
-    if (!projectId) {
-      setIsLoading(false);
-      return;
-    }
+  // ── 2. Listen to project document for member list (real-time) ─────────────
+  useEffect(() => {
+    if (!projectId) { setIsLoading(false); return; }
 
-    // 1. Listen to Project Members first
-    const projectRef = doc(db, "projects", projectId);
-    const unsubProject = onSnapshot(projectRef, async (projectSnap) => {
-      if (!projectSnap.exists()) {
-        setIsLoading(false);
-        return;
-      }
-      
-      const memberIds = projectSnap.data().members || [];
-      
-      // 2. Fetch/Listen to all members' progress & details
-      // We'll use a real-time listener for the user_project_progress collection
-      // but filter it by the members we found.
-      const q = query(collection(db, "user_project_progress"), where("projectId", "==", projectId));
-      
-      const unsubProgress = onSnapshot(q, async (snapshot) => {
-        const progressMap = new Map();
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          progressMap.set(data.userId, data);
-        });
-
-        const expandedTeam = await Promise.all(memberIds.map(async (userId: string) => {
-           const userSnap = await getDoc(doc(db, "users", userId));
-           const userData = userSnap.data() || {};
-           const progressData = progressMap.get(userId) || {
-              progress: 0,
-              completedTasks: [],
-              status: "Ready"
-           };
-           
-           return { 
-             ...userData, 
-             ...progressData, 
-             id: userId,
-             role: userData.role || "developer" 
-           };
-        }));
-        
-        // Filter out the admin if needed, or show everyone.
-        // Usually, admins might want to see themselves or not. 
-        // Let's show everyone who has 'developer' role or is in the members list.
-        setTeamData(expandedTeam.filter(m => m.id !== projectSnap.data().adminId));
-        setIsLoading(false);
-      });
-      
-      return () => unsubProgress();
+    const unsub = onSnapshot(doc(db, "projects", projectId), (snap) => {
+      if (!snap.exists()) { setIsLoading(false); return; }
+      const data = snap.data();
+      setMemberIds(data.members || []);
+      setAdminId(data.adminId || null);
     });
-
-    return () => {
-      unsubProject();
-      unsubTasks();
-    };
+    return () => unsub();
   }, [projectId]);
+
+  // ── 3. Listen to user_project_progress (real-time) ─────────────────────────
+  // Pisah dari project listener agar tidak nested & tidak leak
+  useEffect(() => {
+    if (!projectId || memberIds.length === 0) return;
+
+    const q = query(
+      collection(db, "user_project_progress"),
+      where("projectId", "==", projectId)
+    );
+
+    const unsub = onSnapshot(q, async (snapshot) => {
+      // Build map: userId → progressData
+      const progressMap = new Map<string, any>();
+      snapshot.docs.forEach(d => {
+        const data = d.data();
+        progressMap.set(data.userId, data);
+      });
+
+      // Fetch user profiles for all members (only non-admin devs)
+      const devIds = memberIds.filter(id => id !== adminId);
+
+      const expanded = await Promise.all(devIds.map(async (userId) => {
+        const userSnap = await getDoc(doc(db, "users", userId));
+        const userData  = userSnap.data() || {};
+        const progress  = progressMap.get(userId) || {
+          progress: 0,
+          completedTasks: [],
+          status: "Just Started",
+          lastActive: null,
+        };
+        return { ...userData, ...progress, id: userId };
+      }));
+
+      setTeamData(expanded);
+      setIsLoading(false);
+    });
+
+    return () => unsub();
+  }, [projectId, memberIds, adminId]);
 
   const getStatusColor = (progress: number) => {
     if (progress >= 100) return { bg: "bg-emerald-500", badge: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20", label: "Ready" };
-    if (progress >= 50) return { bg: "bg-amber-500", badge: "bg-amber-500/10 text-amber-500 border-amber-500/20", label: "In Progress" };
+    if (progress >= 50)  return { bg: "bg-amber-500",   badge: "bg-amber-500/10 text-amber-500 border-amber-500/20",   label: "In Progress" };
     return { bg: "bg-indigo-500", badge: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20", label: "Just Started" };
   };
 
@@ -106,11 +106,11 @@ export default function TeamProgress() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {teamData.length === 0 && (
             <div className="col-span-full py-12 text-center text-zinc-500 bg-zinc-900/50 rounded-2xl border border-zinc-800 border-dashed">
-              No developers found yet. Share the app URL and let them sign in!
+              No developers found yet. Share the invite link so team members can join!
             </div>
           )}
           {teamData.map((dev) => {
-            const colors = getStatusColor(dev.progress);
+            const colors    = getStatusColor(dev.progress || 0);
             const isExpanded = expandedId === dev.id;
 
             return (
@@ -119,19 +119,19 @@ export default function TeamProgress() {
                 className="bg-zinc-900/50 border border-zinc-800 rounded-[2rem] flex flex-col hover:border-zinc-700 transition-all duration-300 shadow-xl overflow-hidden glass"
               >
                 <div className="p-8 space-y-6">
-                  {/* Card Header: Avatar & Name & Badge */}
+                  {/* Card Header */}
                   <div className="flex justify-between items-start">
                     <div className="flex flex-row items-center space-x-4">
                       {dev.photoURL ? (
                         <img src={dev.photoURL} alt={dev.name} className="h-12 w-12 rounded-2xl border border-zinc-700 object-cover" />
                       ) : (
                         <div className="h-12 w-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-xl font-black text-indigo-400 border border-zinc-700">
-                          {dev.name.charAt(0).toUpperCase()}
+                          {(dev.name || "?").charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="flex flex-col">
-                        <h2 className="text-lg font-bold text-zinc-100 tracking-tight">{dev.name}</h2>
-                        <p className={`text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-1`}>ID: {dev.id.slice(0, 8)}</p>
+                        <h2 className="text-lg font-bold text-zinc-100 tracking-tight">{dev.name || "Unknown"}</h2>
+                        <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-1">ID: {dev.id.slice(0, 8)}</p>
                       </div>
                     </div>
                     <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${colors.badge}`}>
@@ -139,27 +139,27 @@ export default function TeamProgress() {
                     </div>
                   </div>
 
-                  {/* Progress Section */}
+                  {/* Progress */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-end">
                       <span className="text-sm font-bold text-zinc-400">{colors.label}</span>
                       <span className={`text-3xl font-black tracking-tighter ${jetbrainsMono.className} text-white`}>
-                        {dev.progress}%
+                        {dev.progress || 0}%
                       </span>
                     </div>
                     <div className="h-3 w-full bg-zinc-950 rounded-full overflow-hidden shadow-inner">
                       <div 
                         className={`h-full transition-all duration-1000 ease-out shadow-lg ${colors.bg}`}
-                        style={{ width: `${Math.max(dev.progress, 5)}%` }}
+                        style={{ width: `${Math.max(dev.progress || 0, 5)}%` }}
                       />
                     </div>
                   </div>
 
-                  {/* Highlights */}
+                  {/* Stats */}
                   <div className="pt-4 border-t border-zinc-800/50 flex flex-col space-y-3">
                     <div className="flex items-center text-zinc-400 text-sm font-medium">
                       <CheckCircle2 className="w-4 h-4 mr-2 text-indigo-400" />
-                      <span><b className="text-zinc-200">{dev.completedTasks.length}</b> of {globalTasks.length} Tasks Done</span>
+                      <span><b className="text-zinc-200">{(dev.completedTasks || []).length}</b> of {globalTasks.length} Tasks Done</span>
                     </div>
                     <div className="flex items-center text-zinc-500 text-xs font-bold uppercase tracking-widest">
                       <Clock className="w-4 h-4 mr-2 text-zinc-600" />
@@ -168,7 +168,7 @@ export default function TeamProgress() {
                   </div>
                 </div>
                 
-                {/* Expand / Collapse Button */}
+                {/* Expand Button */}
                 <button 
                   onClick={() => setExpandedId(isExpanded ? null : dev.id)}
                   className="w-full bg-zinc-950 border-t border-zinc-800/50 p-4 text-[11px] uppercase tracking-widest font-black text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
@@ -177,12 +177,12 @@ export default function TeamProgress() {
                   {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
 
-                {/* Expanded Task List View */}
+                {/* Expanded Task List */}
                 {isExpanded && (
                   <div className="bg-zinc-950 p-6 border-t border-zinc-800/50 space-y-4">
                     <h4 className="text-xs uppercase font-black tracking-widest text-indigo-500 mb-4 px-2">Task Checklist</h4>
                     {globalTasks.map((task) => {
-                      const isDone = dev.completedTasks.includes(task.id);
+                      const isDone = (dev.completedTasks || []).includes(task.id);
                       return (
                         <div key={task.id} className="flex items-start gap-3 text-sm p-2 rounded-lg hover:bg-zinc-900/50 transition-colors">
                           {isDone ? (
@@ -199,7 +199,7 @@ export default function TeamProgress() {
                             </div>
                           </div>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 )}
