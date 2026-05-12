@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { joinProjectByInviteCode } from "@/lib/project";
-import { db, collection, query, where, getDocs } from "@/lib/firebase";
+import { db, auth, collection, query, where, getDocs } from "@/lib/firebase";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { toast } from "react-hot-toast";
 import { 
   Users, 
   ArrowRight, 
   CheckCircle2, 
   ShieldAlert,
+  LogIn,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -22,9 +24,11 @@ export default function JoinProjectPage() {
   const [project, setProject] = useState<any>(null);
   const [isFetching, setIsFetching] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);  // Invalid code → disable button
-  const [joinError, setJoinError] = useState<string | null>(null);    // Join failed → keep button active
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
+  // Fetch project info by invite code
   useEffect(() => {
     const fetchProject = async () => {
       if (!inviteCode) return;
@@ -43,7 +47,7 @@ export default function JoinProjectPage() {
           setProject({ id: projectDoc.id, ...projectDoc.data() });
         }
       } catch (err) {
-        setFetchError("Could not find this project. Please check the link.");
+        setFetchError("Could not load project. Please check the link.");
       } finally {
         setIsFetching(false);
       }
@@ -52,15 +56,41 @@ export default function JoinProjectPage() {
     fetchProject();
   }, [inviteCode]);
 
+  // After user logs in (via popup), auto-join if project is ready
+  useEffect(() => {
+    if (user && project && !isFetching && joinError?.includes("logged in")) {
+      // User just signed in after a permission error — auto retry join
+      handleJoin();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const handleGoogleSignIn = async () => {
+    setIsSigningIn(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged will update `user` → auto-join handled in useEffect above
+      toast.success("Signed in! Joining project...");
+    } catch (err: any) {
+      if (err.code !== "auth/popup-closed-by-user") {
+        toast.error("Sign in failed. Please try again.");
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   const handleJoin = async () => {
+    // Not logged in → trigger Google popup instead of redirecting
     if (!user) {
-      toast.error("Please login to join this project.");
-      router.push(`/login?redirect=/join/${inviteCode}`);
+      await handleGoogleSignIn();
       return;
     }
 
+    // Already a member → just redirect
     if (project?.members?.includes(user.uid)) {
-      toast.success("You are already a member of this project!");
+      toast.success("You're already a member of this project!");
       router.push(`/dashboard?projectId=${project.id}`);
       return;
     }
@@ -69,10 +99,12 @@ export default function JoinProjectPage() {
     setJoinError(null);
     try {
       const projectId = await joinProjectByInviteCode(inviteCode, user.uid);
-      toast.success("Welcome to the team!");
+      toast.success("Welcome to the team! 🎉");
       router.push(`/dashboard?projectId=${projectId}`);
     } catch (err: any) {
-      const msg = err?.message?.includes("permission")
+      const isPermission = err?.message?.toLowerCase().includes("permission") 
+                        || err?.message?.toLowerCase().includes("missing");
+      const msg = isPermission
         ? "Permission denied. Please make sure you're logged in and try again."
         : err?.message || "Failed to join project.";
       toast.error(msg);
@@ -82,6 +114,14 @@ export default function JoinProjectPage() {
     }
   };
 
+  const isLoading = isJoining || isSigningIn;
+  const buttonLabel = isSigningIn
+    ? "Signing in..."
+    : isJoining
+    ? "Joining Team..."
+    : !user
+    ? "Sign in & Accept Invitation"
+    : "Accept Invitation";
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6 overflow-hidden relative">
@@ -122,7 +162,7 @@ export default function JoinProjectPage() {
               {inviteCode}
             </div>
 
-            {/* Project details (shown when found) */}
+            {/* Project details */}
             {project && (
               <div className="pt-4 border-t border-zinc-800/50 text-left space-y-1">
                 <p className="text-white font-black text-lg">{project.name}</p>
@@ -135,6 +175,14 @@ export default function JoinProjectPage() {
               </div>
             )}
           </div>
+
+          {/* Not logged in notice */}
+          {!authLoading && !user && !fetchError && (
+            <div className="flex items-center gap-3 p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl text-zinc-400 text-sm w-full">
+              <LogIn className="w-4 h-4 shrink-0 text-indigo-400" />
+              <span>You&apos;ll be signed in with Google when you accept.</span>
+            </div>
+          )}
 
           {/* Error messages */}
           {fetchError ? (
@@ -149,7 +197,7 @@ export default function JoinProjectPage() {
                 {joinError}
               </div>
               <p className="text-zinc-500 text-xs pl-6">
-                Make sure the Firestore rules are published. Tap below to retry.
+                Tap below to retry.
               </p>
             </div>
           ) : (
@@ -158,13 +206,23 @@ export default function JoinProjectPage() {
             </p>
           )}
 
+          {/* Main CTA button */}
           <button
             onClick={handleJoin}
-            disabled={isJoining || !!fetchError || isFetching}
+            disabled={isLoading || !!fetchError || isFetching}
             className="group w-full py-5 bg-white text-black font-black rounded-[2rem] flex items-center justify-center gap-3 hover:bg-indigo-50 transition-all active:scale-95 disabled:opacity-50 shadow-2xl shadow-white/5"
           >
-            {isJoining ? "Joining Team..." : "Accept Invitation"}
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            {!user && !isLoading && (
+              /* Google icon when not signed in */
+              <svg width="18" height="18" viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+            )}
+            {buttonLabel}
+            {!isLoading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
           </button>
           
           <Link
